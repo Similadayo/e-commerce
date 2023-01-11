@@ -3,6 +3,7 @@
 An e-commerce web application that allows users to browse and purchase products, and also allows admin to add and remove products and check statistics.
 
 ## Features
+
 - User authentication and registration
 - Browse and purchase products
 - Add products to cart
@@ -23,33 +24,43 @@ These instructions will get you a copy of the project up and running on your loc
 ### Installation
 
 # Clone the repository
+
+````sh
 $ git clone https://github.com/username/myproject.git
 
 # Navigate to the project directory
+```sh
 $ cd myproject
 
 # Install the Go dependencies
+```sh
 $ go get -v -t -d ./...
 
 # Create a .env file in the root of the project and add the following environment variables:
-#  DB_USER=<your_db_user>
-#  DB_PASSWORD=<your_db_password>
-#  DB_NAME=<your_db_name>
-#  JWT_SECRET=<your_secret_key>
+```sh
+ DB_USER=<your_db_user>
+ DB_PASSWORD=<your_db_password>
+ DB_NAME=<your_db_name>
+ JWT_SECRET=<your_secret_key>
 
 # Start the backend server
+```sh
 $ go run main.go
 
 # Navigate to the frontend directory
+```sh
 $ cd frontend
 
 # Install the npm dependencies
+```sh
 $ npm install
 
 # Start the frontend server
+```sh
 $ npm start
 
 # Access the application
+```sh
 $ open http://localhost:3000
 
 ## Built With
@@ -69,3 +80,4 @@ $ open http://localhost:3000
 
 # License
 - MIT
+````
