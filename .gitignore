@@ -1,5 +1,4 @@
-# Go files
-*.go
+
 
 # Vendor
 vendor/
