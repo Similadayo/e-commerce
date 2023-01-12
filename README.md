@@ -79,11 +79,6 @@ $ open http://localhost:3000
 - Gorm
 - MySQL
 
-# Frontend:
-- React
-- React-Bootstrap
-- Stripe
-
 # Author
 - Similadayo
 
