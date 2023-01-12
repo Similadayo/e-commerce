@@ -1,0 +1,18 @@
+# Go files
+*.go
+
+# Vendor
+vendor/
+
+# Test
+test/
+coverage/
+
+# Environment File
+.env
+
+# Build
+build/
+
+# Temporary files
+tmp/

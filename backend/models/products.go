@@ -1,8 +1,13 @@
 package models
 
+import "github.com/jinzhu/gorm"
+
 type Product struct {
-	ID       uint   `gorm:"primary_key"`
-	Name     string `gorm:"not null"`
-	Price    uint   `gorm:"not null"`
-	Quantity uint   `gorm:"not null"`
+    gorm.Model
+    Name string `gorm:"type:varchar(100);not null"`
+    Description string `gorm:"type:text;not null"`
+    Price float32 `gorm:"type:decimal(10,2);not null"`
+    Quantity int `gorm:"type:integer;not null"`
+    Category string `gorm:"type:varchar(100);not null"`
+    ImageURL string `gorm:"type:varchar(255);not null"`
 }
