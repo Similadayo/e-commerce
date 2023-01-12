@@ -1,18 +1,26 @@
 package models
 
 import (
-	"time"
-
 	"github.com/jinzhu/gorm"
 )
 
 type Order struct {
 	gorm.Model
-	UserID    uint      `gorm:"not null"`
-	ProductID uint      `gorm:"not null"`
-	Quantity  int       `gorm:"type:integer;not null"`
-	Address   string    `gorm:"type:varchar(255);not null"`
-	TotalCost float32   `gorm:"type:decimal(10,2);not null"`
-	Status    string    `gorm:"type:varchar(100);not null"`
-	Date      time.Time `gorm:"not null"`
+	UserId          uint        `gorm:"not null"`
+	OrderNumber     string      `gorm:"type:varchar(100);not null"`
+	ShippingAddress string      `gorm:"type:varchar(100);not null"`
+	BillingAddress  string      `gorm:"type:varchar(100);not null"`
+	Items           []OrderItem `gorm:"foreignkey:OrderId"`
+	TotalCost       float32     `gorm:"not null"`
+	PaymentMethod   string      `gorm:"type:varchar(100);not null"`
+	PaymentStatus   bool        `gorm:"not null"`
+	DeliveryStatus  bool        `gorm:"not null"`
+}
+
+type OrderItem struct {
+	gorm.Model
+	OrderId   uint    `gorm:"not null"`
+	ProductId uint    `gorm:"not null"`
+	Quantity  uint    `gorm:"not null"`
+	SubTotal  float32 `gorm:"not null"`
 }

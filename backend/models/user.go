@@ -2,21 +2,14 @@ package models
 
 import (
 	"github.com/jinzhu/gorm"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
 	gorm.Model
-	Username    string `gorm:"type:varchar(100);not null"`
-	Email       string `gorm:"type:varchar(100);not null"`
-	Password    []byte `gorm:"type:varchar(100);not null"`
-	Address     string `gorm:"type:varchar(100);not null"`
-	PhoneNumber uint64 `gorm:"not null"`
-	Role        Role   `gorm:"foreignkey:RoleID"`
-	RoleID      uint
-}
-
-func (u *User) BeforeSave() (err error) {
-	u.Password, err = bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
-	return
+	Username    string `json:"username" gorm:"type:varchar(100);not null"`
+	Email       string `json:"email" gorm:"type:varchar(100);not null"`
+	Password    string `json:"password" gorm:"type:varchar(100);not null"`
+	Address     string `json:"address" gorm:"type:varchar(100);not null"`
+	PhoneNumber string `json:"phone_number" gorm:"type:varchar(20);not null"`
+	Role        string `json:"role" gorm:"type:varchar(100);not null"`
 }

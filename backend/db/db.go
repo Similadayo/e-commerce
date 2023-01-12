@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -32,5 +33,17 @@ func ConnectToDb() {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
 	// Automatically create tables
-	DB.AutoMigrate(&models.Order{}, models.Product{}, models.User{}, models.Cart{}, models.Category{}, models.Role{})
+	DB.AutoMigrate(&models.Order{}, models.Product{}, models.User{}, models.Cart{}, models.Category{})
+}
+
+func GetDB() (*gorm.DB, error) {
+	dbHost := os.Getenv("DB_HOST")
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local", dbUser, dbPass, dbHost, dbName))
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }

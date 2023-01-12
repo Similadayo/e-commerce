@@ -2,12 +2,11 @@ package router
 
 import (
 	"github.com/Similadayo/backend/controllers"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
-func Router() *mux.Router {
-
-	r := mux.NewRouter()
-	r.HandleFunc("/", controllers.HomeHandler).Methods("GET")
-	return r
+func SetupRouter(r *gin.Engine) {
+	r.GET("/", controllers.HomeHandler)
+	r.POST("/register", controllers.CreateUser)
+	r.POST("/login", controllers.Login)
 }

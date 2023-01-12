@@ -1,14 +1,27 @@
 package utils
 
 import (
-	"encoding/json"
-	"net/http"
+	"github.com/gin-gonic/gin"
 )
 
-// Respond is a helper function to format and return a response to the client
-func Respond(w http.ResponseWriter, data interface{}, status int) {
-	w.WriteHeader(status)
+type Respond struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+}
+
+func Response(c *gin.Context, status int, data interface{}) {
+	var respond Respond
 	if data != nil {
-		json.NewEncoder(w).Encode(data)
+		respond = Respond{
+			Success: true,
+			Data:    data,
+		}
+	} else {
+		respond = Respond{
+			Success: false,
+			Error:   "Error processing request",
+		}
 	}
+	c.JSON(status, respond)
 }
