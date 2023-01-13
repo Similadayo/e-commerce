@@ -26,7 +26,7 @@ These instructions will get you a copy of the project up and running on your loc
 # Clone the repository
 
 ```
-$ git clone https://github.com/username/myproject.git
+$ git clone https://github.com/similadayo/e-commerce.git
 ```
 
 # Navigate to the project directory
