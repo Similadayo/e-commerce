@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"time"
 
+	"github.com/Similadayo/backend/models"
 	"github.com/form3tech-oss/jwt-go"
+	"github.com/jinzhu/gorm"
 )
 
 var jwtKey = []byte(os.Getenv("SECRET_KEY"))
@@ -31,4 +34,45 @@ func GenerateToken(username string, role string) (string, error) {
 		return "", err
 	}
 	return tokenString, nil
+}
+
+// AddToBlacklist function for adding token to the blacklist
+func AddToBlacklist(db *gorm.DB, token string, expiresAt time.Time) error {
+	blacklistedToken := &models.BlacklistToken{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}
+	if err := db.Create(blacklistedToken).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+// IsTokenBlacklisted function for checking if the token is blacklisted
+func IsTokenBlacklisted(db *gorm.DB, token string) (bool, error) {
+	var blacklistedToken models.BlacklistToken
+	if err := db.Where("token = ? AND expires_at > ?", token, time.Now()).First(&blacklistedToken).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func VerifyToken(tokenString string) (*Claims, error) {
+	claims := &Claims{}
+	t, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			return nil, fmt.Errorf("invalid token")
+		}
+		return nil, err
+	}
+	if !t.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+	return claims, nil
 }

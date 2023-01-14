@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/Similadayo/backend/db"
 	"github.com/Similadayo/backend/models"
@@ -114,7 +115,76 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, utils.Message(false, "Error generating JWT"))
 		return
 	}
-	c.JSON(http.StatusOK, utils.Message(true, token))
+	if foundUser.Role != "is_admin" {
+		c.JSON(http.StatusForbidden, utils.Message(false, "You do not have permission to access this resource"))
+		return
+	}
+	cookie := http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Expires:  time.Now().Add(1 * time.Hour),
+		HttpOnly: true,
+	}
+	http.SetCookie(c.Writer, &cookie)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"message": "Success",
+		"token":   token,
+	})
+}
+
+func Logout(c *gin.Context) {
+	tokenString, err := c.Cookie("token")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token not found in cookie"})
+		return
+	}
+
+	claims, err := utils.VerifyToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid token in claims"})
+		return
+	}
+
+	// Add the token to the blacklist
+	expiresAt := time.Unix(claims.ExpiresAt, 0).UTC()
+	if err := utils.AddToBlacklist(db.DB, tokenString, expiresAt); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add token to blacklist"})
+		return
+	}
+	// Clear the token cookie
+	c.SetCookie("token", "", -1, "", "", false, true)
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
+}
+
+func UpdateUser(c *gin.Context) {
+	// Get the user ID from the request parameters
+	userID := c.Param("id")
+
+	// Get the authenticated user's ID from the JWT
+	authUserID := c.MustGet("user_id").(string)
+
+	// Verify that the authenticated user has permission to update the user
+	if authUserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to update this user"})
+		return
+	}
+
+	// Get the updated user information from the request body
+	var updatedUser models.User
+	if err := c.ShouldBindJSON(&updatedUser); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update the user in the database
+	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updatedUser).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
 
 func HomeHandler(c *gin.Context) {
