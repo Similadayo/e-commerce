@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Similadayo/backend/db"
@@ -115,10 +116,6 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, utils.Message(false, "Error generating JWT"))
 		return
 	}
-	if foundUser.Role != "is_admin" {
-		c.JSON(http.StatusForbidden, utils.Message(false, "You do not have permission to access this resource"))
-		return
-	}
 	cookie := http.Cookie{
 		Name:     "token",
 		Value:    token,
@@ -159,32 +156,255 @@ func Logout(c *gin.Context) {
 }
 
 func UpdateUser(c *gin.Context) {
-	// Get the user ID from the request parameters
-	userID := c.Param("id")
-
-	// Get the authenticated user's ID from the JWT
-	authUserID := c.MustGet("user_id").(string)
-
-	// Verify that the authenticated user has permission to update the user
-	if authUserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to update this user"})
+	tokenString, err := c.Cookie("token")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token not found in cookie"})
+		return
+	}
+	// Verify the user's token
+	claims, err := utils.VerifyToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
 	}
 
-	// Get the updated user information from the request body
+	// Get the user ID from the request parameters
+	userID, err := strconv.Atoi(c.Params.ByName("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Check if the user is an admin
+	if claims.Username != claims.Username {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only users can update other users"})
+		return
+	}
+
+	// Bind the updated user data from the request body
 	var updatedUser models.User
-	if err := c.ShouldBindJSON(&updatedUser); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.BindJSON(&updatedUser); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user data"})
 		return
 	}
 
 	// Update the user in the database
-	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updatedUser).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+	db, err := db.GetDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error connecting to the database"})
+		return
+	}
+	defer db.Close()
+
+	if err := db.Model(&models.User{}).Where("id = ?", userID).Updates(updatedUser).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating the user"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+}
+
+func GetUser(c *gin.Context) {
+	// Get the token from the Authorization header
+	tokenString, err := c.Cookie("token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found in request headers"})
+		return
+	}
+
+	// Verify the token
+	claims, err := utils.VerifyToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Get the user ID from the request parameters
+	userID, err := strconv.Atoi(c.Params.ByName("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Check if the user is an admin
+	if claims.Role != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can access this resource"})
+		return
+	}
+
+	// Get the user from the database
+	db, err := db.GetDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.Message(false, "Error connecting to database"))
+		return
+	}
+	defer db.Close()
+
+	var user models.User
+	if err := db.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	user.Password = ""
+	c.JSON(http.StatusOK, gin.H{
+		"status": http.StatusOK,
+		"data":   user,
+	})
+}
+
+func GetUsers(c *gin.Context) {
+	// Get the token from the Authorization header
+	tokenString, err := c.Cookie("token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found in request headers"})
+		return
+	}
+
+	// Verify the token
+	claims, err := utils.VerifyToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Check if the user is an admin
+	if claims.Role != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can access this route"})
+		return
+	}
+
+	// Get all users from the database
+	db, err := db.GetDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error connecting to database"})
+		return
+	}
+	defer db.Close()
+
+	var users []models.User
+	if err := db.Find(&users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching users"})
+		return
+	}
+
+	// Return the users with hashed passwords
+	c.JSON(http.StatusOK, gin.H{"users": sanitizeUsers(users)})
+}
+
+func sanitizeUsers(users []models.User) []models.User {
+	for i, user := range users {
+		user.Password = ""
+		users[i] = user
+	}
+	return users
+}
+
+func DeleteUser(c *gin.Context) {
+	// Get the token from the Authorization header
+	tokenString, err := c.Cookie("token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found in request headers"})
+		return
+	}
+
+	// Verify the token
+	claims, err := utils.VerifyToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Get the user ID from the request parameters
+	userID, err := strconv.Atoi(c.Params.ByName("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Get the user from the database
+	db, err := db.GetDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.Message(false, "Error connecting to database"))
+		return
+	}
+	defer db.Close()
+
+	var user models.User
+	if err := db.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Check if the user trying to delete their own account
+	if claims.Username != user.Username {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only delete your own account"})
+		return
+	}
+
+	if err := db.Delete(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"message": "Successfully deleted user",
+	})
+}
+
+func SuspendUser(c *gin.Context) {
+	// Get the token from the Authorization header
+	tokenString, err := c.Cookie("token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found in request headers"})
+		return
+	}
+
+	// Verify the token
+	claims, err := utils.VerifyToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Check if the user is an admin
+	if claims.Role != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can access this resource"})
+		return
+	}
+
+	// Get the user ID from the request parameters
+	userID, err := strconv.Atoi(c.Params.ByName("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Get the user from the database
+	db, err := db.GetDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.Message(false, "Error connecting to database"))
+		return
+	}
+	defer db.Close()
+
+	var user models.User
+	if err := db.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Create new Suspension struct and associate it with the user
+	var suspension models.Suspension
+	suspension.UserID = user.ID
+	suspension.StartTime = time.Now()
+	suspension.EndTime = time.Now().Add(time.Duration(24) * time.Hour)
+	suspension.Reason = "Violation of terms of service"
+	db.Create(&suspension)
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"message": "User suspended successfully",
+	})
 }
 
 func HomeHandler(c *gin.Context) {
