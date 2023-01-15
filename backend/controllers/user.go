@@ -2,14 +2,18 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/Similadayo/backend/db"
+	"github.com/Similadayo/backend/mailer"
 	"github.com/Similadayo/backend/models"
 	"github.com/Similadayo/backend/utils"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 func CreateUser(c *gin.Context) {
@@ -404,6 +408,96 @@ func SuspendUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  http.StatusOK,
 		"message": "User suspended successfully",
+	})
+}
+
+func ForgotPassword(c *gin.Context) {
+	// Get the email address from the request body
+	var request struct {
+		Email string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Get the user from the database
+	db, err := db.GetDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.Message(false, "Error connecting to database"))
+		return
+	}
+	defer db.Close()
+
+	var user models.User
+	if err := db.Where("email = ?", request.Email).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching user from database"})
+		return
+	}
+
+	// Generate a password reset token
+	token, err := utils.GeneratePasswordResetToken(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating password reset token"})
+		return
+	}
+
+	// Send an email with the password reset link
+	link := fmt.Sprintf("http://example.com/reset-password?token=%s", token)
+	if err := mailer.SendPasswordResetEmail(user.Email, link); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error sending password reset email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset email sent"})
+}
+
+func ResetPassword(c *gin.Context) {
+	// Get the token from the request body
+	token := c.PostForm("token")
+
+	// Verify the token
+	claims, err := utils.VerifyPasswordResetToken(token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Get the new password from the request body
+	password := c.PostForm("password")
+
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error hashing password"})
+		return
+	}
+
+	// Get the user from the database
+	db, err := db.GetDB()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.Message(false, "Error connecting to database"))
+		return
+	}
+	defer db.Close()
+
+	var user models.User
+	if err := db.Where("email = ?", claims.Email).First(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Update the user's password
+	user.Password = string(hashedPassword)
+	db.Save(&user)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"message": "Password reset successfully",
 	})
 }
 

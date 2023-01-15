@@ -14,7 +14,13 @@ var jwtKey = []byte(os.Getenv("SECRET_KEY"))
 
 type Claims struct {
 	Username string `json:"username"`
+	Email    string `json:"user_id"`
 	Role     string `json:"role"`
+	jwt.StandardClaims
+}
+
+type PasswordResetClaims struct {
+	UserID uint `json:"user_id"`
 	jwt.StandardClaims
 }
 
@@ -61,6 +67,39 @@ func IsTokenBlacklisted(db *gorm.DB, token string) (bool, error) {
 }
 
 func VerifyToken(tokenString string) (*Claims, error) {
+	claims := &Claims{}
+	t, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			return nil, fmt.Errorf("invalid token")
+		}
+		return nil, err
+	}
+	if !t.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+	return claims, nil
+}
+
+// GeneratePasswordResetToken generates a new JWT token that can be used to reset a user's password
+func GeneratePasswordResetToken(userID uint) (string, error) {
+	expirationTime := time.Now().Add(time.Hour * 24) // token expires in 24 hours
+	claims := &PasswordResetClaims{
+		UserID: userID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
+}
+func VerifyPasswordResetToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	t, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
