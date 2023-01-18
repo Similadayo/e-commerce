@@ -8,10 +8,9 @@ type Product struct {
 	Description string   `json:"description" gorm:"type:text;not null"`
 	Price       float32  `json:"price" gorm:"type:decimal(10,2);not null"`
 	Quantity    int      `json:"quantity" gorm:"not null"`
-	Images      []string `json:"images" gorm:"type:varchar(255)"`
-	Category    Category `json:"category" gorm:"ForeignKey:CategoryID;AssociationForeignKey:ID"`
+	Category    Category `json:"category" gorm:"many2many:product_categories;ForeignKey:CategoryID;AssociationForeignKey:ID"`
 	CategoryID  uint     `json:"category_id" gorm:"not null"`
-	Sizes       []string `json:"sizes" gorm:"type:varchar(255)"`
-	Colors      []string `json:"colors" gorm:"type:varchar(255)"`
+	Sizes       []Size   `json:"sizes" gorm:"many2many:product_sizes;ForeignKey:SizeID;AssociationForeignKey:ID"`
+	Colors      []Color  `json:"colors" gorm:"many2many:product_colors;ForeignKey:ColorID;AssociationForeignKey:ID"`
 	Brand       *string  `json:"brand" gorm:"type:varchar(255)"`
 }

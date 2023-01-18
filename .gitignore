@@ -15,3 +15,4 @@ build/
 
 # Temporary files
 tmp/
+.vscode/launch.json

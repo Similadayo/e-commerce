@@ -33,7 +33,8 @@ func ConnectToDb() {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
 	// Automatically create tables
-	DB.AutoMigrate(&models.Order{}, models.Product{}, models.User{}, models.Cart{}, models.Category{}, models.BlacklistToken{}, models.Suspension{})
+	DB.AutoMigrate(&models.Order{}, models.Product{}, models.User{}, models.Cart{}, models.Category{}, models.BlacklistToken{}, models.Suspension{},
+		models.Size{}, models.Color{})
 }
 
 func GetDB() (*gorm.DB, error) {
